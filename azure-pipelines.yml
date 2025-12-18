@@ -1,0 +1,99 @@
+trigger: none
+# This pool is configure to Azure VM
+pool:
+  name: wipro-ltd 
+# Using Parameters dev.prod.Qa
+parameters:
+- name: environment
+  displayName: Select Environment
+  type: string
+  default: dev
+  values:
+    - dev
+    - qa
+    - prod
+# Terraform Install & INIT
+stages:
+- stage: Terraform_Install_Init
+  displayName: Terraform install init
+  jobs:
+  - job: TerraformJob
+    displayName: Terraform Job
+    steps:
+      - task: TerraformInstaller@1
+        inputs:
+          terraformVersion: 'latest'
+      - task: TerraformTask@5
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: '$(System.DefaultWorkingDirectory)\env\dev'
+          backendServiceArm: 'wipro-pipeline'
+          backendAzureRmStorageAccountName: 'projectdev123'
+          backendAzureRmContainerName: 'etihad'
+          backendAzureRmKey: 'dev.tfstate'
+
+#  Scaning Tool Tfse,TFlint
+- stage: Scanning_Tool
+  displayName: Scanning Tool
+  dependsOn: Terraform_Install_Init
+  jobs:
+  - job: ScanJob
+    displayName: Scan Job
+    steps:
+      - task: tfsec@1
+        inputs:
+          version: 'v1.26.0'
+          dir: '$(System.DefaultWorkingDirectory)\env\dev'
+      - task: PowerShell@2
+        displayName: tflint scaning
+        inputs:
+          targetType: 'inline'
+          script: |
+            $env:PATH += ";C:\tflint"
+            cd '$(System.DefaultWorkingDirectory)\env\dev'
+            tflint --init
+            tflint --chdir=.
+# Mannual Validation Stage 
+- stage: mannual_validation
+  displayName: Mannual_validation
+  dependsOn: Scanning_Tool
+  pool: server
+  jobs:
+    - job:  manual_validation
+      steps:
+      - task: ManualValidation@1
+        displayName: Mannual_validation
+        inputs:
+          notifyUsers: 'ajayazure21@gmail.com'
+          approvers: 'ajayazure21@gmail.com'
+          onTimeout: 'resume'
+
+# Terraform PLan  
+- stage: terraform_plan
+  displayName: Terraform Plan Stage
+  dependsOn: mannual_validation
+  jobs:
+  - job: TerraformPlan
+    displayName: Terraform Init + Plan
+    steps:
+     - task: TerraformTask@5
+       inputs:
+         provider: 'azurerm'
+         command: 'init'
+         workingDirectory: '$(System.DefaultWorkingDirectory)\env\dev'
+         backendServiceArm: 'wipro-pipeline'
+         backendAzureRmStorageAccountName: 'projectdev123'
+         backendAzureRmContainerName: 'etihad'
+         backendAzureRmKey: 'dev.tfstate'
+     - task: TerraformTask@5
+       inputs:
+         provider: 'azurerm'
+         command: 'plan'
+         workingDirectory: '$(System.DefaultWorkingDirectory)\env\dev'
+         environmentServiceNameAzureRM: 'wipro-pipeline'
+
+   
+   
+       
+

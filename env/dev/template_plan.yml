@@ -1,0 +1,32 @@
+jobs:
+  - job: TerraformPlan
+    displayName: Terraform Init + Plan
+    steps:
+
+    # Install Terraform (optional but recommended)
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: '1.6.6'
+
+    # Terraform Init
+    - task: TerraformTask@5
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/env/dev'
+        backendServiceArm: 'wipro-pipeline'
+        backendAzureRmStorageAccountName: 'projectdev123'
+        backendAzureRmContainerName: 'etihad'
+        backendAzureRmKey: 'dev.tfstate'
+        commandOptions: '-reconfigure'
+
+    # Terraform Plan
+    - task: TerraformTask@5
+      displayName: Terraform Plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/env/dev'
+        environmentServiceNameAzureRM: 'wipro-pipeline'
